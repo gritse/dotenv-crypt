@@ -5,6 +5,12 @@ Swift CLI tool that encrypts individual values in `.env` files using AES-256-GCM
 ### Install
 
 ```sh
+brew install gritse/tap/dotenv-crypt
+```
+
+Or build from source:
+
+```sh
 swift build -c release
 cp .build/release/dotenv-crypt ~/.local/bin/
 ```
