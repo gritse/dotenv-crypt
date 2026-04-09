@@ -1,12 +1,10 @@
 import ArgumentParser
-import CryptoKit
 import Foundation
-import Security
 
 struct AddSecretCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "add-secret",
-        abstract: "Generate a random secret and store it in Keychain."
+        abstract: "Read a secret from stdin and store it in Keychain."
     )
 
     @Option(name: .short, help: "Keychain service name.")
@@ -15,29 +13,39 @@ struct AddSecretCommand: ParsableCommand {
     @Option(name: .short, help: "Keychain account name.")
     var account: String
 
+    @Flag(name: .long, help: "Keep trailing newline(s) from stdin.")
+    var keepNewline: Bool = false
+
     @OptionGroup var keychain: KeychainOptions
 
     mutating func run() throws {
-        let secret = SymmetricKey(size: .bits256)
-            .withUnsafeBytes { Data($0) }
-            .base64EncodedString()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        guard !data.isEmpty else {
+            throw AddSecretError.emptyInput
+        }
 
-        try Keychain.saveItem(Data(secret.utf8), service: service, account: account, keychainPath: keychain.resolved)
+        var secret = data
+        if !keepNewline {
+            while let last = secret.last, last == 0x0A || last == 0x0D {
+                secret.removeLast()
+            }
+            if secret.isEmpty {
+                throw AddSecretError.emptyInput
+            }
+        }
+
+        try Keychain.saveItem(secret, service: service, account: account, keychainPath: keychain.resolved)
         print("Saved '\(account)' in '\(service)'.")
     }
 }
 
 enum AddSecretError: Error, CustomStringConvertible {
-    case alreadyExists(service: String, account: String)
-    case saveFailed(OSStatus)
+    case emptyInput
 
     var description: String {
         switch self {
-        case .alreadyExists(let s, let a):
-            "Item already exists for service '\(s)', account '\(a)'"
-        case .saveFailed(let status):
-            "Failed to save keychain item (status \(status))"
+        case .emptyInput:
+            "No secret provided on stdin"
         }
     }
 }
