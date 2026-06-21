@@ -29,16 +29,19 @@ struct DockerCommand: ParsableCommand {
         let composeTokens = Array(tokens[composeIdx...])
         let envFilePath = resolveEnvFile(from: composeTokens)
 
-        guard FileManager.default.fileExists(atPath: envFilePath),
-              let contents = try? String(contentsOfFile: envFilePath, encoding: .utf8),
-              contents.contains("enc:v1:") else {
+        let envURL = URL(fileURLWithPath: envFilePath)
+        guard let content = try? Data(contentsOf: envURL) else {
+            execDocker(args: args, env: ProcessInfo.processInfo.environment)
+        }
+        let contents = String(decoding: content, as: UTF8.self)
+        guard contents.contains("enc:v1:") else {
             execDocker(args: args, env: ProcessInfo.processInfo.environment)
         }
 
-        try Auth.requireTouchID(reason: "Decrypt \(envFilePath) for docker compose")
-
         let key = try Keychain.loadKey(keychainPath: keychain.resolved)
-        let envFile = try EnvFile(contentsOf: URL(fileURLWithPath: envFilePath))
+        try UnlockStore.requireTouchIDUnlessUnlocked(envURL: envURL, content: content, key: key, reason: "Decrypt \(envFilePath) for docker compose")
+
+        let envFile = EnvFile(contents: contents)
 
         var env = ProcessInfo.processInfo.environment
         for (k, v) in envFile.allEntries() {

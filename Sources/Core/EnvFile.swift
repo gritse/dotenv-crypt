@@ -8,6 +8,11 @@ struct EnvFile {
         rawLines = text.components(separatedBy: "\n")
     }
 
+    /// Parse from an already-loaded string, avoiding a second disk read.
+    init(contents text: String) {
+        rawLines = text.components(separatedBy: "\n")
+    }
+
     static func loadOrCreate(at url: URL) throws -> EnvFile {
         if FileManager.default.fileExists(atPath: url.path) {
             return try EnvFile(contentsOf: url)

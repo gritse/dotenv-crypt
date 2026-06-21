@@ -17,18 +17,15 @@ struct RevealCommand: ParsableCommand {
 
     mutating func run() throws {
         let url = URL(fileURLWithPath: file)
-        let file = try EnvFile(contentsOf: url)
+        let content = try Data(contentsOf: url)
+        let envFile = EnvFile(contents: String(decoding: content, as: UTF8.self))
 
-        guard let value = file.value(for: key) else {
+        guard let value = envFile.value(for: key) else {
             throw EnvFileError.keyNotFound(key)
         }
-        try Auth.requireTouchID(reason: "Reveal '\(key)'")
 
-        if Crypto.isEncrypted(value) {
-            let encKey = try Keychain.loadKey(keychainPath: keychain.resolved)
-            print(try Crypto.decrypt(value, using: encKey))
-        } else {
-            print(value)
-        }
+        let encKey = try Keychain.loadKey(keychainPath: keychain.resolved)
+        try UnlockStore.requireTouchIDUnlessUnlocked(envURL: url, content: content, key: encKey, reason: "Reveal '\(key)'")
+        print(Crypto.isEncrypted(value) ? try Crypto.decrypt(value, using: encKey) : value)
     }
 }

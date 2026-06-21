@@ -22,15 +22,16 @@ struct ExecCommand: ParsableCommand {
             throw ValidationError("No command specified.")
         }
 
-        try Auth.requireTouchID(reason: "Decrypt .env values for \(command[0])")
-
         let key = try Keychain.loadKey(keychainPath: keychain.resolved)
         let url = URL(fileURLWithPath: file)
-        let file = try EnvFile(contentsOf: url)
+        let content = try Data(contentsOf: url)
+        try UnlockStore.requireTouchIDUnlessUnlocked(envURL: url, content: content, key: key, reason: "Decrypt .env values for \(command[0])")
+
+        let envFile = EnvFile(contents: String(decoding: content, as: UTF8.self))
 
         // Start with current process environment, overlay with .env values
         var env = ProcessInfo.processInfo.environment
-        for (k, v) in file.allEntries() {
+        for (k, v) in envFile.allEntries() {
             env[k] = Crypto.isEncrypted(v) ? try Crypto.decrypt(v, using: key) : v
         }
 

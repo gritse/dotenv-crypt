@@ -45,6 +45,18 @@ Add to `~/.zshenv` for transparent usage:
 docker() { dotenv-crypt docker "$@"; }
 ```
 
+### Temporarily skipping Touch ID
+
+```sh
+dotenv-crypt unlock -f .env -m 30    # suppress Touch ID for this .env for 30 min
+dotenv-crypt lock -f .env            # revoke the unlock early
+dotenv-crypt lock --all              # clear every unlock record
+```
+
+While unlocked, `reveal`, `exec`, and `docker` skip the Touch ID prompt for **that specific file only**. The unlock is bound to the file's absolute path and a SHA-256 of its contents — editing the `.env` voids it. It also auto-expires after N minutes and is dropped on reboot.
+
+Expiry uses a monotonic clock (`CLOCK_MONOTONIC_RAW`) plus the boot-session UUID, never wall-clock time, so changing the system date cannot extend the window. State is stored encrypted (AES-256-GCM, with path/hash/boot bound as authenticated data) in `/tmp`.
+
 ### Keychain management
 
 ```sh

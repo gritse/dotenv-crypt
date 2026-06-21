@@ -17,6 +17,23 @@ enum Crypto {
         return encryptedPrefix + combined.base64EncodedString()
     }
 
+    /// Seals raw bytes with additional authenticated data. The AAD is authenticated but not
+    /// encrypted: opening fails unless the exact same AAD is supplied. Returns GCM combined output.
+    static func sealRaw(_ data: Data, using key: SymmetricKey, aad: Data) throws -> Data {
+        let sealed = try AES.GCM.seal(data, using: key, authenticating: aad)
+        guard let combined = sealed.combined else {
+            throw CryptoError.sealFailed
+        }
+        return combined
+    }
+
+    /// Opens GCM combined output produced by `sealRaw`. Throws if the AAD, key, or ciphertext
+    /// don't match what was sealed.
+    static func openRaw(_ combined: Data, using key: SymmetricKey, aad: Data) throws -> Data {
+        let box = try AES.GCM.SealedBox(combined: combined)
+        return try AES.GCM.open(box, using: key, authenticating: aad)
+    }
+
     static func decrypt(_ value: String, using key: SymmetricKey) throws -> String {
         guard isEncrypted(value) else {
             throw CryptoError.notEncrypted
